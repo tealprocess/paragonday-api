@@ -13,13 +13,21 @@ let latLons = {
     lon: -73.90749042399337,
   },
   'quay': {
-    lat: 01,
-    lon: 01,
+    lat: 40.7264841,
+    lon: -73.9604679,
   },
   'factory': {
-    lat: 01,
-    lon: 01,
+    lat: 40.6738201,
+    lon: -73.9091468,
   },
+  'index': {
+    lat: 40.7176017,
+    lon: -73.9997659
+  },
+  'temperance': {
+    lat: 38.9165688,
+    lon: -77.0315354
+  }
 }
 
 router.get('/', async (req, res) => {
