@@ -1,13 +1,18 @@
+
+//
+// Todo: 
+// * fix bug of time not calculating right when its close to sunset sometimes — fixed on client side for now, should fix server side as well. 
+// * create route to get the time til and past solstices and equinoxes
+
 const express = require('express');
 const bent = require('bent')
 const getJSON = bent('json')
-// const getBuffer = bent('buffer')
-// let buffer = await getBuffer('http://site.com/image.png')
-const baseSunriseSunsetUrl = 'http://api.sunrise-sunset.org/json';
-
+const { find } = require('geo-tz')
+const { DateTime } = require("luxon");
 const router = express.Router();
 
-let latLons = {
+const baseSunriseSunsetUrl = 'http://api.sunrise-sunset.org/json';
+const latLons = {
   'playground': {
     lat: 40.67887649748418,
     lon: -73.90749042399337,
@@ -30,6 +35,11 @@ let latLons = {
   }
 }
 
+
+//
+// Route Definitions 
+// 
+
 router.get('/', async (req, res) => {
   try {
     let queryParams = '?' + req.url.split('?')[1]
@@ -44,19 +54,7 @@ router.get('/', async (req, res) => {
 
 router.get('/suntime', async (req, res) => {
   try {
-    let lat, lon;
-
-    if(req.query.location){
-      lat = latLons[req.query.location].lat;
-      lon = latLons[req.query.location].lon;
-    } else {
-      lat = req.query.lat;
-      lon = req.query.lng;
-    }
-
-    if(lat == undefined) {
-      throw new Error('No location was provided.');
-    }
+    let { lat, lon } = parseParamsForLatLon(req.query)
     console.log('fetching suntimes for ', lat, lon);
     let trioOfTimes = await fetchSunTimes(lat, lon);
     let suntimeObj = findTheTime(trioOfTimes);
@@ -67,10 +65,79 @@ router.get('/suntime', async (req, res) => {
   }
 });
 
+// Return the next sun event data 
+router.get('/next', async (req, res) => {
+  try {
+    let { lat, lon } = parseParamsForLatLon(req.query)
+    let timezones = find(lat, lon); // geo-tz returns an array
+    let timezone = timezones[0]; 
+
+    let threeDates = formatThreeDatesForTimezone(timezone);
+    let trioOfTimes = await fetchSunTimesByDates(lat, lon, threeDates);
+
+    let suntimeObj = findTheTime(trioOfTimes);
+
+    let nextEvent, nextType;
+    if (suntimeObj.whereWeAre == 'before sunrise'){ // send todays sunrise
+      nextEvent = trioOfTimes[1].results.sunrise;
+      nextType = 'sunrise';
+    } else if (suntimeObj.whereWeAre == 'after sunrise'){ // send todays sunset
+      nextEvent = trioOfTimes[1].results.sunset;
+      nextType = 'sunset';
+    } else if (suntimeObj.whereWeAre == 'after sunset'){ // send tomorrows sunrise
+      nextEvent = trioOfTimes[2].results.sunrise;
+      nextType = 'sunrise';
+    }
+
+    const response = {
+      nextEvent,
+      nextType,
+    }
+    res.json(response);
+
+  } catch (e) {
+    console.log('/next err', e)
+    res.json({ error: e.message})
+  }
+});
+
 
 
 module.exports = router;
 
+
+//
+// Helper Functions 
+// 
+
+function parseParamsForLatLon(params){
+  let lat, lon;
+  if(params.location){
+    lat = latLons[params.location].lat;
+    lon = latLons[params.location].lon;
+  } else {
+    lat = params.lat;
+    lon = params.lng;
+  }
+
+  if(lat == undefined || lon == undefined) {
+    throw new Error('No location was provided.');
+  }
+
+  return { lat, lon }
+}
+
+function formatThreeDatesForTimezone(timezone){
+  const today = DateTime.now().setZone(timezone).toFormat('yyyy-MM-dd');
+  const yesterday = DateTime.now().setZone(timezone).minus({ days: 1 }).toFormat('yyyy-MM-dd');
+  const tomorrow = DateTime.now().setZone(timezone).plus({ days: 1 }).toFormat('yyyy-MM-dd');
+
+  return {
+    today,
+    yesterday,
+    tomorrow
+  };
+}
 
 function fetchSunTimes(lat, lon){
   let queryParams = [
@@ -83,8 +150,24 @@ function fetchSunTimes(lat, lon){
   return Promise.all(promises);
 }
 
+function fetchSunTimesByDates(lat, lon, dates){
+  let queryParams = [
+    "?lat=" + lat + "&lng=" + lon + "&formatted=0&date=" + dates.yesterday,
+    "?lat=" + lat + "&lng=" + lon + "&formatted=0&date=" + dates.today,
+    "?lat=" + lat + "&lng=" + lon + "&formatted=0&date=" + dates.tomorrow
+  ];
+  
+  const promises = queryParams.map(params => {
+    return getJSON(baseSunriseSunsetUrl + params)
+      .catch(async error => {
+        console.log('Error fetching sunrise-sunset API:', JSON.stringify(await error.json()));
+        throw error;
+      });
+  });
+  return Promise.all(promises);
+}
 
-function findTheTime(trioOfTimes) {
+function findTheTime(trioOfTimes, currentTime = new Date()) {
 
   // create date objects from sunrise-sunset api times
   let times = {
@@ -102,7 +185,6 @@ function findTheTime(trioOfTimes) {
     }
   };
 
-  let currentTime = new Date();
   let whereWeAre = findOurselves(currentTime, times);
   // sunPrint.innerText = whereWeAre;
 
