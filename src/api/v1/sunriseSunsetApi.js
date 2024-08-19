@@ -254,7 +254,8 @@ function findTheTime(trioOfTimes, currentTime = new Date()) {
     time2: time2String,
     sunPercent: sunPercent,
     nightStartPercent: nightStartPercent,
-    whereWeAre: whereWeAre
+    whereWeAre: whereWeAre,
+    times: times
   }
 }
 
