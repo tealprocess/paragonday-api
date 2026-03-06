@@ -1,0 +1,16 @@
+{
+  "appclips": {
+    "apps": ["33BECG44J5.systems.paragonday.app.Clip"]
+  },
+  "applinks": {
+    "apps": [],
+    "details": [
+      {
+        "appIDs": ["33BECG44J5.systems.paragonday.app"],
+        "components": [
+          { "/": "/gather*" }
+        ]
+      }
+    ]
+  }
+}
