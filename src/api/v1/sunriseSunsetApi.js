@@ -11,7 +11,7 @@ const { find } = require('geo-tz')
 const { DateTime } = require("luxon");
 const router = express.Router();
 
-const baseSunriseSunsetUrl = 'http://api.sunrise-sunset.org/json';
+const baseSunriseSunsetUrl = 'https://api.sunrise-sunset.org/json';
 const latLons = {
   'playground': {
     lat: 40.67887649748418,
