@@ -28,13 +28,14 @@ app.get('/.well-known/apple-app-site-association', (req, res) => {
       apps: ['F695HM3JW7.systems.paragonday.app.Clip']
     },
     applinks: {
-      apps: [],
       details: [
         {
+          appIDs: ['F695HM3JW7.systems.paragonday.app.Clip'],
+          components: [{ '/': '/gather*' }]
+        },
+        {
           appIDs: ['F695HM3JW7.systems.paragonday.app'],
-          components: [
-            { '/': '/gather*' }
-          ]
+          components: [{ '/': '/gather*' }]
         }
       ]
     }
