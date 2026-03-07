@@ -25,13 +25,13 @@ app.get('/', (req, res) => {
 app.get('/.well-known/apple-app-site-association', (req, res) => {
   res.json({
     appclips: {
-      apps: ['33BECG44J5.systems.paragonday.app.Clip']
+      apps: ['F695HM3JW7.systems.paragonday.app.Clip']
     },
     applinks: {
       apps: [],
       details: [
         {
-          appIDs: ['33BECG44J5.systems.paragonday.app'],
+          appIDs: ['F695HM3JW7.systems.paragonday.app'],
           components: [
             { '/': '/gather*' }
           ]
