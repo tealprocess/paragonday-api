@@ -11,6 +11,8 @@ const { find } = require('geo-tz')
 const { DateTime } = require("luxon");
 const router = express.Router();
 
+const { getSunTimesFromQuery, calculateSunTimes } = require('../../services/sunCalculator');
+
 const baseSunriseSunsetUrl = 'https://api.sunrise-sunset.org/json';
 const latLons = {
   'playground': {
@@ -47,8 +49,15 @@ router.get('/', async (req, res) => {
     let timeObj = await getJSON(baseSunriseSunsetUrl + queryParams)
     res.json(timeObj);
   } catch (e) {
-    console.log('sunrise-sunset err', e)
-    res.json({ error: e})
+    console.log('sunrise-sunset API error, using local fallback:', e.message || e);
+    try {
+      let timeObj = getSunTimesFromQuery(req.query);
+      console.log('Local fallback succeeded');
+      res.json(timeObj);
+    } catch (fallbackErr) {
+      console.log('Local fallback also failed:', fallbackErr);
+      res.json({ error: fallbackErr.message || fallbackErr });
+    }
   }
 });
 
@@ -146,22 +155,32 @@ function fetchSunTimes(lat, lon){
     "?lat=" + lat + "&lng=" + lon + "&formatted=0&date=tomorrow"
   ];
 
-  const promises = queryParams.map(params => getJSON(baseSunriseSunsetUrl + params));
+  const dateArray = ['yesterday', 'today', 'tomorrow'];
+
+  const promises = queryParams.map((params, index) => {
+    return getJSON(baseSunriseSunsetUrl + params)
+      .catch(error => {
+        console.log('External API failed for', dateArray[index], '- using local fallback');
+        return calculateSunTimes(lat, lon, dateArray[index]);
+      });
+  });
   return Promise.all(promises);
 }
 
-function fetchSunTimesByDates(lat, lon, dates){
+async function fetchSunTimesByDates(lat, lon, dates){
   let queryParams = [
     "?lat=" + lat + "&lng=" + lon + "&formatted=0&date=" + dates.yesterday,
     "?lat=" + lat + "&lng=" + lon + "&formatted=0&date=" + dates.today,
     "?lat=" + lat + "&lng=" + lon + "&formatted=0&date=" + dates.tomorrow
   ];
-  
-  const promises = queryParams.map(params => {
+
+  const dateArray = [dates.yesterday, dates.today, dates.tomorrow];
+
+  const promises = queryParams.map((params, index) => {
     return getJSON(baseSunriseSunsetUrl + params)
       .catch(async error => {
-        console.log('Error fetching sunrise-sunset API:', JSON.stringify(await error.json()));
-        throw error;
+        console.log('External API failed for', dateArray[index], '- using local fallback');
+        return calculateSunTimes(lat, lon, dateArray[index]);
       });
   });
   return Promise.all(promises);
