@@ -9,17 +9,10 @@ describe('GET /api/v1', () => {
       .set('Accept', 'application/json')
       .expect('Content-Type', /json/)
       .expect(200, {
-        message: 'API - 👋🌎🌍🌏'
+        message: '🪂🪂🪂'
       }, done);
   });
 });
 
-describe('GET /api/v1/emojis', () => {
-  it('responds with a json message', (done) => {
-    request(app)
-      .get('/api/v1/emojis')
-      .set('Accept', 'application/json')
-      .expect('Content-Type', /json/)
-      .expect(200, ['😀', '😳', '🙄'], done);
-  });
-});
+// /api/v1/emojis was removed; route is commented out in src/api/v1/index.js.
+// Test left out intentionally.

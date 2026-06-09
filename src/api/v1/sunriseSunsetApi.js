@@ -65,7 +65,20 @@ router.get('/suntime', async (req, res) => {
   try {
     let { lat, lon } = parseParamsForLatLon(req.query)
     console.log('fetching suntimes for ', lat, lon);
-    let trioOfTimes = await fetchSunTimes(lat, lon);
+
+    // BUG FIX (Sumba flat-wave / "00:00 tilset" stuck): previously this
+    // route sent date=yesterday|today|tomorrow as literal strings, which
+    // api.sunrise-sunset.org resolves in UTC, not the queried lat/lng's
+    // local day. For a location east enough that its local calendar day
+    // is ahead of UTC (e.g. Indonesia just after local midnight), the
+    // returned window was off-by-one Sumba-day, so today.sunset was
+    // already in the past, tilset went negative, and parseMilliseconds
+    // formatted a nonsense countdown. We now compute the three dates in
+    // the location's IANA tz exactly like /next does.
+    let timezones = find(lat, lon);
+    let timezone = timezones[0];
+    let threeDates = formatThreeDatesForTimezone(timezone);
+    let trioOfTimes = await fetchSunTimesByDates(lat, lon, threeDates);
     let suntimeObj = findTheTime(trioOfTimes);
     res.json(suntimeObj);
   } catch (e) {
@@ -113,6 +126,14 @@ router.get('/next', async (req, res) => {
 
 
 module.exports = router;
+
+// Exposed for unit tests.
+module.exports.__test__ = {
+  formatThreeDatesForTimezone,
+  findTheTime,
+  formatTimeDiff,
+  parseMilliseconds,
+};
 
 
 //
@@ -288,6 +309,13 @@ function formatTimeDiff(timeDiff, plusOrMinus, type, description ){
 }
 
 function parseMilliseconds(duration){
+  // BUG FIX: previously a negative duration (which happened when the
+  // sun-times window was stale and "today.sunset" was already in the past)
+  // produced strings like "0-2:0-33" because the modulo math went negative
+  // and the "if < 10 prefix '0'" branch fired on negatives. Clamp to >= 0;
+  // sign is conveyed by the caller's plusOrMinus arg.
+  duration = Math.max(0, duration);
+
   var milliseconds = parseInt((duration % 1000) / 100),
     seconds = Math.floor((duration / 1000) % 60),
     minutes = Math.floor((duration / (1000 * 60)) % 60),
